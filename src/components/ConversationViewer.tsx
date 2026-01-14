@@ -218,11 +218,11 @@ export default function ConversationViewer({
       {showSensitiveReview && sensitiveMessages.length > 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b bg-orange-50">
-              <h2 className="text-2xl font-bold text-orange-900">
-                ⚠️ Sensitive Data Detected
+            <div className="p-6 border-b bg-gray-50">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Sensitive Data Detected
               </h2>
-              <p className="text-orange-700 mt-2">
+              <p className="text-gray-700 mt-2">
                 Found {sensitiveMessages.length} message{sensitiveMessages.length > 1 ? 's' : ''} with potentially sensitive information.
                 Review each one and decide what to delete.
               </p>
@@ -232,23 +232,23 @@ export default function ConversationViewer({
               {sensitiveMessages.map(({ convId, convTitle, msgId, message }) => {
                 const content = message.content;
                 return (
-                  <div key={`${convId}-${msgId}`} className="border-2 border-orange-300 rounded-lg p-4 bg-orange-50">
+                  <div key={`${convId}-${msgId}`} className="border-2 border-blue-300 rounded-lg p-4 bg-blue-50">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="text-xs text-gray-500 mb-1">From: {convTitle}</p>
                         <span className="font-semibold text-sm">
-                          {message.role === 'user' ? '👤 User' : '🤖 Assistant'}
+                          {message.role === 'user' ? 'User' : 'Assistant'}
                         </span>
                       </div>
                       <button
                         onClick={() => deleteSensitiveMessage(convId, msgId)}
-                        className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                        className="px-4 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
                       >
                         Delete This
                       </button>
                     </div>
                     
-                    <div className="mb-3 p-2 bg-orange-100 border border-orange-400 rounded text-sm text-orange-900">
+                    <div className="mb-3 p-2 bg-blue-100 border border-blue-300 rounded text-sm text-blue-900">
                       <strong>Reason:</strong> {message.sensitiveReason}
                     </div>
                     
@@ -263,13 +263,13 @@ export default function ConversationViewer({
             <div className="p-6 border-t bg-gray-50 flex gap-4 justify-end">
               <button
                 onClick={keepAllSensitive}
-                className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Keep All ({sensitiveMessages.length})
               </button>
               <button
                 onClick={deleteAllSensitive}
-                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Delete All ({sensitiveMessages.length})
               </button>
@@ -305,7 +305,7 @@ export default function ConversationViewer({
               <button
                 onClick={analyzeSensitiveData}
                 disabled={isAnalyzing}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAnalyzing ? 'AI Analysis Running...' : 'Deep AI Scan (Optional)'}
               </button>
@@ -314,14 +314,14 @@ export default function ConversationViewer({
             <button
               onClick={openSensitiveReview}
               disabled={stats.sensitive === 0}
-              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Review Sensitive Messages ({stats.sensitive})
             </button>
             
             <button
               onClick={exportFilteredData}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Export to .txt
             </button>
@@ -329,16 +329,16 @@ export default function ConversationViewer({
 
           <div className="text-sm text-gray-600 space-y-1">
             <div>Total messages: <span className="font-semibold">{stats.total}</span></div>
-            <div>To delete: <span className="font-semibold text-red-600">{stats.deleted}</span></div>
-            <div>Sensitive detected: <span className="font-semibold text-orange-600">{stats.sensitive}</span></div>
+            <div>To delete: <span className="font-semibold">{stats.deleted}</span></div>
+            <div>Sensitive detected: <span className="font-semibold">{stats.sensitive}</span></div>
           </div>
         </div>
         
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
           Basic sensitive messages detection runs automatically (emails, phones, addresses). 
           Use "Deep AI Scan" for pushing the detection further (it takes at least an hour maybe two depending on how much you interacted with chat GPT xD).
         </div>
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
           <strong>How to use:</strong>
           <ul className="list-disc ml-5 mt-2 space-y-1">
             <li>Review auto-detected sensitive messages</li>
@@ -367,7 +367,7 @@ export default function ConversationViewer({
                 </span>
                 <button
                   onClick={() => deleteConversation(conv.id)}
-                  className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                  className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
                   title="Delete entire conversation"
                 >
                   Delete Conv
@@ -390,9 +390,9 @@ export default function ConversationViewer({
                       key={msg.id}
                       className={`p-4 rounded-lg border-2 ${
                         msg.isMarkedForDeletion
-                          ? 'bg-red-50 border-red-300 opacity-50'
+                          ? 'bg-gray-100 border-gray-400 opacity-50'
                           : msg.hasSensitiveData
-                          ? 'bg-orange-50 border-orange-300'
+                          ? 'bg-blue-50 border-blue-300'
                           : msg.role === 'user'
                           ? 'bg-blue-50 border-blue-200'
                           : 'bg-gray-50 border-gray-200'
@@ -400,14 +400,14 @@ export default function ConversationViewer({
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-semibold text-sm">
-                          {msg.role === 'user' ? '👤 User' : '🤖 Assistant'}
+                          {msg.role === 'user' ? 'User' : 'Assistant'}
                         </span>
                         <button
                           onClick={() => toggleMessageDeletion(conv.id, msg.id)}
                           className={`px-3 py-1 text-xs rounded ${
                             msg.isMarkedForDeletion
-                              ? 'bg-green-600 text-white hover:bg-green-700'
-                              : 'bg-red-600 text-white hover:bg-red-700'
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-gray-600 text-white hover:bg-gray-700'
                           }`}
                         >
                           {msg.isMarkedForDeletion ? 'Restore' : 'Delete'}
@@ -415,8 +415,8 @@ export default function ConversationViewer({
                       </div>
                       
                       {msg.hasSensitiveData && (
-                        <div className="mb-2 p-2 bg-orange-100 border border-orange-300 rounded text-xs text-orange-800">
-                          ⚠️ Sensitive data detected: {msg.sensitiveReason}
+                        <div className="mb-2 p-2 bg-blue-100 border border-blue-300 rounded text-xs text-blue-800">
+                          Sensitive data detected: {msg.sensitiveReason}
                         </div>
                       )}
                       
