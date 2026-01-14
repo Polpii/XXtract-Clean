@@ -76,6 +76,16 @@ export default function FileUploader({ onConversationsLoaded, setIsAnalyzing }: 
       const data = JSON.parse(jsonContent);
       const conversations: Conversation[] = [];
       
+      // Check if this is a saved work file (has our metadata)
+      if (data.length > 0 && data[0].messages && data[0].messages[0].isMarkedForDeletion !== undefined) {
+        // This is a saved work file, return it directly
+        return data.map((conv: any) => ({
+          ...conv,
+          isExpanded: false // Reset expansion state
+        }));
+      }
+      
+      // Otherwise, parse as original ChatGPT export
       for (const conv of data) {
         const mapping = conv.mapping || {};
         const messages = reconstructConversationOrder(mapping);
@@ -144,12 +154,12 @@ export default function FileUploader({ onConversationsLoaded, setIsAnalyzing }: 
         Import ChatGPT Export
       </h2>
       <p className="text-gray-600 mb-8">
-        Select your conversations.json file
+        Upload your conversations.json file or a saved work file to continue
       </p>
       
       <label className="cursor-pointer">
         <span className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-          Choose conversations.json
+          Choose File
         </span>
         <input
           type="file"

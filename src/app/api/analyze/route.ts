@@ -61,29 +61,28 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: `Analyze these messages for personal identifiable information (PII).
+              content: `Analyze these messages for sensitive personal information that the user might not want to share publicly.
 
 Detect:
-- Full names of real people
-- Email addresses
-- Phone numbers
-- Physical addresses
-- SSN, passport, ID numbers
-- Financial information
-- Medical information
-- Precise locations
-- Birth dates
+- Personal Identifiable Information (PII): full names, email addresses, phone numbers, physical addresses, SSN, passport/ID numbers, birth dates
+- Financial information: bank accounts, credit cards, salary details
+- Medical/health information: conditions, medications, treatments
+- Intimate/private content: sexual discussions, relationships, infidelity, affairs, private family matters
+- Personal problems: mental health struggles, personal conflicts, embarrassing situations
+- Confidential work information: trade secrets, internal company information
+- Precise locations that could identify someone's home or workplace
 
 Respond with JSON array (one per message):
 [
-  {"index": 1, "hasSensitiveData": true/false, "reason": "description or null"},
+  {"index": 1, "hasSensitiveData": true/false, "reason": "brief description or null"},
   ...
 ]
 
 Ignore:
 - First names only
-- Generic/public info
-- Code/variables`
+- Generic/public information
+- Code/technical variables
+- General discussions without personal details`
             },
             {
               role: 'user',

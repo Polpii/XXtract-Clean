@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Conversation, Message } from '@/types';
 import { detectSensitiveDataLocally } from '@/utils/piiDetection';
 
@@ -20,6 +20,10 @@ export default function ConversationViewer({
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [showSensitiveReview, setShowSensitiveReview] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [searchResults, setSearchResults] = useState<Array<{convId: string; msgId: string}>>([]);
   const [sensitiveMessages, setSensitiveMessages] = useState<Array<{
     convId: string;
     convTitle: string;
@@ -51,6 +55,33 @@ export default function ConversationViewer({
     setConversations(conversationsWithLocalDetection);
   }, [conversations.length]);
 
+  // Perform search manually when triggered
+  const performSearch = useCallback(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      setDebouncedSearchQuery('');
+      return;
+    }
+
+    setDebouncedSearchQuery(searchQuery);
+    const results: Array<{convId: string; msgId: string}> = [];
+    const lowerQuery = searchQuery.toLowerCase();
+    conversations.forEach(conv => {
+      conv.messages.forEach(msg => {
+        if (msg.content.toLowerCase().includes(lowerQuery)) {
+          results.push({ convId: conv.id, msgId: msg.id });
+        }
+      });
+    });
+    setSearchResults(results);
+    if (results.length > 0) {
+      setCurrentSearchIndex(0);
+    } else {
+      setCurrentSearchIndex(-1);
+    }
+  }, [searchQuery, conversations]);
+
   const toggleConversation = (convId: string) => {
     setConversations(
       conversations.map(conv =>
@@ -64,6 +95,68 @@ export default function ConversationViewer({
       setConversations(conversations.filter(conv => conv.id !== convId));
     }
   };
+
+  const navigateSearch = (direction: 'next' | 'prev') => {
+    if (searchResults.length === 0) return;
+    
+    let newIndex = currentSearchIndex;
+    if (direction === 'next') {
+      newIndex = (currentSearchIndex + 1) % searchResults.length;
+    } else {
+      newIndex = currentSearchIndex - 1;
+      if (newIndex < 0) newIndex = searchResults.length - 1;
+    }
+    setCurrentSearchIndex(newIndex);
+
+    // Expand conversation containing current result and scroll to it
+    const result = searchResults[newIndex];
+    setConversations(conversations.map(conv => 
+      conv.id === result.convId ? { ...conv, isExpanded: true } : conv
+    ));
+
+    // Scroll to the message after a brief delay to allow DOM update
+    setTimeout(() => {
+      const element = document.getElementById(`msg-${result.convId}-${result.msgId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
+
+  const deleteAllSearchResults = () => {
+    if (searchResults.length === 0) return;
+    
+    if (confirm(`Delete all ${searchResults.length} messages matching "${searchQuery}"?`)) {
+      // Create a Set for faster lookup
+      const toDelete = new Set(searchResults.map(r => `${r.convId}:${r.msgId}`));
+      
+      setConversations(conversations.map(conv => ({
+        ...conv,
+        messages: conv.messages.map(msg => {
+          const key = `${conv.id}:${msg.id}`;
+          if (toDelete.has(key)) {
+            return { ...msg, isMarkedForDeletion: true };
+          }
+          return msg;
+        })
+      })));
+      
+      setSearchQuery('');
+    }
+  };
+
+  const highlightText = useCallback((text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    // Escape special regex characters
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
+    return parts.map((part, i) => 
+      part.toLowerCase() === query.toLowerCase() 
+        ? `<mark class="bg-red-200 text-red-900 font-bold">${part}</mark>`
+        : part
+    ).join('');
+  }, []);
 
   const toggleMessageDeletion = (convId: string, msgId: string) => {
     setConversations(
@@ -153,9 +246,20 @@ export default function ConversationViewer({
 
   const deleteAllSensitive = () => {
     if (confirm(`Delete all ${sensitiveMessages.length} sensitive messages?`)) {
-      sensitiveMessages.forEach(({ convId, msgId }) => {
-        toggleMessageDeletion(convId, msgId);
-      });
+      // Create a Set for faster lookup
+      const toDelete = new Set(sensitiveMessages.map(s => `${s.convId}:${s.msgId}`));
+      
+      setConversations(conversations.map(conv => ({
+        ...conv,
+        messages: conv.messages.map(msg => {
+          const key = `${conv.id}:${msg.id}`;
+          if (toDelete.has(key)) {
+            return { ...msg, isMarkedForDeletion: true };
+          }
+          return msg;
+        })
+      })));
+      
       setSensitiveMessages([]);
       setShowSensitiveReview(false);
     }
@@ -163,6 +267,25 @@ export default function ConversationViewer({
 
   const keepAllSensitive = () => {
     setShowSensitiveReview(false);
+  };
+
+  const saveWork = () => {
+    // Filter out messages marked for deletion
+    const filteredConversations = conversations.map(conv => ({
+      ...conv,
+      messages: conv.messages.filter(msg => !msg.isMarkedForDeletion)
+    })).filter(conv => conv.messages.length > 0);
+
+    const jsonOutput = JSON.stringify(filteredConversations, null, 2);
+    const blob = new Blob([jsonOutput], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chatgpt_work_in_progress_${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const exportFilteredData = () => {
@@ -200,7 +323,7 @@ export default function ConversationViewer({
     URL.revokeObjectURL(url);
   };
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: conversations.reduce((acc, conv) => acc + conv.messages.length, 0),
     deleted: conversations.reduce(
       (acc, conv) => acc + conv.messages.filter(m => m.isMarkedForDeletion).length,
@@ -210,7 +333,26 @@ export default function ConversationViewer({
       (acc, conv) => acc + conv.messages.filter(m => m.hasSensitiveData).length,
       0
     )
-  };
+  }), [conversations]);
+
+  // Filter conversations based on search query - use debounced query for filtering display
+  const filteredConversations = useMemo(() => {
+    if (!debouncedSearchQuery.trim()) return conversations;
+    
+    const lowerQuery = debouncedSearchQuery.toLowerCase();
+    return conversations
+      .map(conv => {
+        const matchingMessages = conv.messages.filter(msg =>
+          msg.content.toLowerCase().includes(lowerQuery) ||
+          conv.title.toLowerCase().includes(lowerQuery)
+        );
+        if (matchingMessages.length > 0) {
+          return { ...conv, messages: matchingMessages, isExpanded: true as boolean };
+        }
+        return null;
+      })
+      .filter((conv) => conv !== null) as Conversation[];
+  }, [debouncedSearchQuery, conversations]);
 
   return (
     <div className="space-y-6">
@@ -279,7 +421,7 @@ export default function ConversationViewer({
       )}
 
       {/* Toolbar */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className="bg-white rounded-xl shadow-lg p-6 sticky top-0 z-10">
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex gap-4 items-center flex-wrap">
             {showApiKeyInput ? (
@@ -320,6 +462,13 @@ export default function ConversationViewer({
             </button>
             
             <button
+              onClick={saveWork}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Save Progress
+            </button>
+            
+            <button
               onClick={exportFilteredData}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
@@ -334,6 +483,66 @@ export default function ConversationViewer({
           </div>
         </div>
         
+        <div className="mt-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Search by keyword..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  performSearch();
+                }
+              }}
+              className="w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              onClick={performSearch}
+              className="px-8 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              Search
+            </button>
+            {searchResults.length > 0 && (
+              <>
+                <button
+                  onClick={() => navigateSearch('prev')}
+                  className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  title="Previous result"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => navigateSearch('next')}
+                  className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  title="Next result"
+                >
+                  ↓
+                </button>
+                <button
+                  onClick={deleteAllSearchResults}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  title="Delete all matching messages"
+                >
+                  Delete All
+                </button>
+              </>
+            )}
+          </div>
+          {debouncedSearchQuery && (
+            <p className="text-sm text-gray-600 mt-2">
+              {searchResults.length > 0 ? (
+                <>
+                  Found <span className="font-bold">{searchResults.length}</span> message{searchResults.length > 1 ? 's' : ''} matching &quot;{debouncedSearchQuery}&quot;
+                  {searchResults.length > 0 && ` (${currentSearchIndex + 1}/${searchResults.length})`}
+                </>
+              ) : (
+                `No messages found matching "${debouncedSearchQuery}"`
+              )}
+            </p>
+          )}
+        </div>
+        
         <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
           Basic sensitive messages detection runs automatically (emails, phones, addresses). 
           Use "Deep AI Scan" for pushing the detection further (it takes at least an hour maybe two depending on how much you interacted with chat GPT xD).
@@ -344,6 +553,7 @@ export default function ConversationViewer({
             <li>Review auto-detected sensitive messages</li>
             <li>(Optional) Run Deep AI Scan for better detection (take at least an hour)</li>
             <li>Delete entire conversations using "Delete Conv" button OR click on a conversation title to open it and select specific messages to delete</li>
+            <li>Click "Save Progress" to download your work and continue later</li>
             <li>Click "Review Sensitive Messages" to see all flagged data</li>
             <li>Export cleaned conversations to .txt</li>
           </ul>
@@ -352,7 +562,7 @@ export default function ConversationViewer({
 
       {/* Conversations list */}
       <div className="space-y-4">
-        {conversations.map((conv) => (
+        {filteredConversations.map((conv) => (
           <div key={conv.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="p-4 bg-gray-50 flex justify-between items-center">
               <h3 
@@ -385,9 +595,12 @@ export default function ConversationViewer({
               <div className="p-4 space-y-4">
                 {conv.messages.map((msg) => {
                   const content = msg.content;
+                  const isCurrentSearchResult = searchResults[currentSearchIndex]?.convId === conv.id && 
+                                                 searchResults[currentSearchIndex]?.msgId === msg.id;
                   return (
                     <div
                       key={msg.id}
+                      id={`msg-${conv.id}-${msg.id}`}
                       className={`p-4 rounded-lg border-2 ${
                         msg.isMarkedForDeletion
                           ? 'bg-gray-100 border-gray-400 opacity-50'
@@ -420,7 +633,12 @@ export default function ConversationViewer({
                         </div>
                       )}
                       
-                      <p className="text-gray-700 whitespace-pre-wrap">{content}</p>
+                      <p 
+                        className="text-gray-700 whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ 
+                          __html: debouncedSearchQuery.trim() ? highlightText(content, debouncedSearchQuery) : content 
+                        }}
+                      />
                     </div>
                   );
                 })}
